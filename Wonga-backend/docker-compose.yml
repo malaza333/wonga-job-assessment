@@ -1,0 +1,52 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:15.17
+    container_name: wonga_postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: Admin
+      POSTGRES_DB: authdb
+    ports:
+      - "5432:5432"
+    volumes:
+      - wonga_pgdata:/var/lib/postgresql/data
+
+  auditapi:
+    build:
+      context: .
+      dockerfile: AuditService.Api/Dockerfile
+    container_name: audit_api
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__DefaultConnection: Host=postgres;Port=5432;Database=authdb;Username=postgres;Password=Admin
+    ports:
+      - "5002:8080"
+    depends_on:
+      - postgres
+
+  identityapi:
+    build:
+      context: .
+      dockerfile: IdentityService.Api/Dockerfile
+    container_name: identity_api
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__DefaultConnection: Host=postgres;Port=5432;Database=authdb;Username=postgres;Password=Admin
+
+      Audit__BaseUrl: http://auditapi:8080
+
+      Jwt__Issuer: IdentityService
+      Jwt__Audience: WongaClient
+      Jwt__Key: SUPER_SECRET_KEY_123456789_SUPER_SECRET_KEY
+    ports:
+      - "5001:8080"
+    depends_on:
+      - postgres
+      - auditapi
+
+volumes:
+  wonga_pgdata:
